@@ -1,15 +1,19 @@
 import ConfigParser
 import os
 import sys
+import subprocess
 
 DEFAULT_CONFIG="""\
 # Configuration file for the repoman client scripts
 [Logger]
+# NOTE: Logging is currently not implimented.  enabling logging will not yield 
+#       any logs yet.
+#
 # enabled:          If True, then logs will be generated and placed in 'log_dir'
 # log_dir:          Name of directory that logs will be placed in.
 #                   If this is NOT an absolute path, then the directory is
 #                   assumed to reside in the base directory of this config file.
-#
+# 
 logging_enabled: true
 logging_dir: repoman_logs
 
@@ -26,7 +30,12 @@ repository_port: 443
 
 [User]
 # user_proxy_cert: Full path to an RFC compliant proxy certificate.
-#                  If not specified, this will default to /tmp/x509up_u`id -u`
+#                  Order of proxy certificate precidence:
+#                       1. command line '--proxy' argument
+#                       2. value in this file
+#                       3. $X509_USER_PROXY
+#                       4. /tmp/x509up_u`id -u` 
+                        Note: number-4 will respect $SUDO_UID if available
 #
 user_proxy_cert:
 
@@ -42,9 +51,10 @@ user_proxy_cert:
 #                  Each directory must be the full path.
 #                  Each item in the list is seperated by a space.
 #
+lockfile: /tmp/repoman-sync.lock
 snapshot: /tmp/fscopy.img
 mountpoint: /tmp/fscopy
-exclude_dirs: /dev /mnt /lustre /proc /sys /tmp /etc/grid-security /root/.ssh
+exclude_dirs: /dev /mnt /lustre /proc /sys /tmp /root/.ssh
 """
 
 
@@ -58,18 +68,24 @@ class Config(object):
                                  ('ThisImage', 'mountpoint'),
                                  ('ThisImage', 'snapshot'),
                                  ('ThisImage', 'exclude_dirs'),
+                                 ('ThisImage', 'lockfile'),
                                  ('Logger', 'logging_enabled'),
                                  ('Logger', 'logging_dir')]
 
         self._config_locations = ['$REPOMAN_CLIENT_CONFIG',
-                                  '$HOME/.repoman/repoman.conf',
-                                  '~/.repoman/repoman.conf']
+                                  '$HOME/.repoman/repoman.conf']
+        
+        user_id = os.environ.get('SUDO_UID')
+        if not user_id:
+            user_id = os.getuid()
 
         if config_file:
             self._config_locations.insert(0, config_file)
 
         self._default_config_dir = os.path.expanduser('~/.repoman')
-        self._default_proxy = "/tmp/x509up_u%s" % os.getuid()
+        self._default_proxy = os.environ.get('X509_USER_PROXY')
+        if not self._default_proxy:
+            self._default_proxy = "/tmp/x509up_u%s" % user_id
 
         #Read the config file if possible
         self._read_config()
@@ -92,7 +108,9 @@ class Config(object):
         self.verbose = verbose
         if not self.config_file:
             print "No configuration file found."
-            sys.exit(1)
+            self.generate_config()
+            print "Generating new config file at '%s'" % self.config_file
+            self._read_config()
         self._validate_options()
         self._check_logging()
         self._check_proxy()
@@ -133,6 +151,9 @@ class Config(object):
         if not os.path.isdir(self.logging_dir):
             try:
                 os.mkdir(self.logging_dir)
+                uid = os.environ.get('SUDO_UID', os.getuid())
+                gid = os.environ.get('SUDO_GID', os.getgid())
+                os.chown(self.logging_dir, int(uid), int(gid))
             except:
                 self._errors_found = True
                 self._error_messages.append("Logging dir does not exist and I am unable to create it.")
@@ -186,7 +207,17 @@ class Config(object):
             self.user_proxy_cert = self._default_proxy
 
     def _check_proxy(self):
-        pass
+        if not os.path.isfile(self.user_proxy_cert):
+            self._errors_found = True
+            self._error_messages.append("The proxy certificate: '%s' does not exist.\nGenerate a new cert or manually specify with '--proxy'" % self.user_proxy_cert)
+            return
+
+        # Test expiration
+        cmd = "openssl x509 -in %s -noout -checkend 0" % self.user_proxy_cert
+        retcode = subprocess.call(cmd, shell=True)
+        if retcode:
+            self._errors_found = True
+            self._error_messages.append("The proxy certificate: '%s' is expired" % self.user_proxy_cert)
 
 
 config = Config()

@@ -2,6 +2,7 @@ from repoman_client.config import config
 import argparse
 import sys
 from pprint import pprint
+from repoman_client.utils import check_sudo
 
 __all__ = ['RepomanCLI']
 
@@ -67,6 +68,8 @@ class CommandGroup(object):
         if command not in self.commands:
             self.commands.append(command)
             self.command_lookup.update({command.command:command})
+            if command.alias:
+            	self.command_lookup.update({command.alias:command})
 
     def get_command(self, command):
         return self.command_lookup.get(command)
@@ -171,6 +174,8 @@ class RepomanCLI(object):
         if not group and command_class not in self.commands:
             self.commands.append(command_class)
             self.command_lookup.update({command_class.command:command_class})
+            if command_class.alias:
+            	self.command_lookup.update({command_class.alias:command_class})
         elif group:
             group = self._add_command_group(group)
             group.add_command(command_class)
@@ -187,8 +192,6 @@ class RepomanCLI(object):
     def dispatch(self, command, args):
         cmd = self.lookup_command(command)
         if cmd:
-            if cmd.validate_config:
-                config.validate()
             cmd = cmd()
             cmd_parser = cmd.get_parser()
             cmd_parser.prog = command
@@ -197,6 +200,10 @@ class RepomanCLI(object):
             else:
                 args = cmd_parser.parse_args(args)
                 extra = None
+            if cmd.validate_config:
+                config.validate()
+            if cmd.require_sudo:
+                check_sudo(exit=True)
             cmd(args, extra)
             sys.exit(0)
         else:

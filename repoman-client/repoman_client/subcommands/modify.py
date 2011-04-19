@@ -4,20 +4,26 @@ from repoman_client.config import config
 from repoman_client.parsers import parse_unknown_args, ArgumentFormatError
 from argparse import ArgumentParser
 import sys
+import logging
 
 class ModifyUser(SubCommand):
     command_group = "advanced"
     command = "modify-user"
-    alias = None
+    alias = 'mu'
     description = 'Modify an existing user with the given information'
     parse_known_args = True
 
     def get_parser(self):
         p = ArgumentParser(self.description)
+        p.usage = "modify-user [-h] user [--metadata value [--metadata value ...]]"
+        p.epilog = "See documentation for a list of required and optional metadata"
         p.add_argument('user', help='The existing user you want to modify')
         return p
 
     def __call__(self, args, extra_args=None):
+        log = logging.getLogger('ModifyUser')
+        log.debug("args: '%s' extra_args: '%s'" % (args, extra_args))
+    
         repo = RepomanClient(config.host, config.port, config.proxy)
         if extra_args:
             try:
@@ -27,6 +33,8 @@ class ModifyUser(SubCommand):
                 sys.exit(1)
         else:
             kwargs={}
+            
+        log.debug("kwargs: '%s'" % kwargs)
 
         try:
             repo.modify_user(args.user, **kwargs)
@@ -40,16 +48,21 @@ class ModifyUser(SubCommand):
 class ModifyGroup(SubCommand):
     command_group = "advanced"
     command = "modify-group"
-    alias = None
+    alias = 'mg'
     description = 'Modify an existing group with the given information'
     parse_known_args = True
 
     def get_parser(self):
         p = ArgumentParser(self.description)
+        p.usage = "modify-group [-h] group [--metadata value [--metadata value ...]]"
+        p.epilog = "See documentation for a list of required and optional metadata"
         p.add_argument('group', help='The existing group you want to modify')
         return p
 
     def __call__(self, args, extra_args=None):
+        log = logging.getLogger('ModifyGroup')
+        log.debug("args: '%s' extra_args: '%s'" % (args, extra_args))
+    
         repo = RepomanClient(config.host, config.port, config.proxy)
         if extra_args:
             try:
@@ -59,6 +72,8 @@ class ModifyGroup(SubCommand):
                 sys.exit(1)
         else:
             kwargs={}
+
+        log.debug("kwargs: '%s'" % kwargs)
 
         try:
             repo.modify_group(args.group, **kwargs)
@@ -72,16 +87,21 @@ class ModifyGroup(SubCommand):
 class ModifyImage(SubCommand):
     command_group = "advanced"
     command = "modify-image"
-    alias = None
+    alias = 'mi'
     description = 'Modify an existing image with the given information'
     parse_known_args = True
 
     def get_parser(self):
         p = ArgumentParser(self.description)
+        p.usage = "modify-image [-h] image [--metadata value [--metadata value ...]]"
+        p.epilog = "See documentation for a list of required and optional metadata"
         p.add_argument('image', help='The existing image you want to modify')
         return p
 
     def __call__(self, args, extra_args=None):
+        log = logging.getLogger('ModifyImage')
+        log.debug("args: '%s' extra_args: '%s'" % (args, extra_args))
+    
         repo = RepomanClient(config.host, config.port, config.proxy)
         if extra_args:
             try:
@@ -91,6 +111,8 @@ class ModifyImage(SubCommand):
                 sys.exit(1)
         else:
             kwargs={}
+            
+        log.debug("kwargs: '%s'" % kwargs)
 
         try:
             repo.modify_image(args.image, **kwargs)
@@ -103,7 +125,7 @@ class ModifyImage(SubCommand):
 
 class Rename(SubCommand):
     command = 'rename'
-    alias = None
+    alias = 'rn'
     description = "rename an existing image from 'old' to 'new'"
 
     def get_parser(self):
@@ -113,9 +135,13 @@ class Rename(SubCommand):
         return p
 
     def __call__(self, args, extra_args=None):
+        log = logging.getLogger('Rename')
+        log.debug("args: '%s' extra_args: '%s'" % (args, extra_args))
+        
         repo = RepomanClient(config.host, config.port, config.proxy)
 
         kwargs = {'name':args.new}
+        log.debug("kwargs: '%s'" % kwargs)
         try:
             repo.modify_image(args.old, **kwargs)
             print "[OK]     Renaming image."
