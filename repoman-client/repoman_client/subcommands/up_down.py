@@ -36,7 +36,8 @@ class UploadImage(SubCommand):
         repo = RepomanClient(config.host, config.port, config.proxy)
         try:
             #########################
-            sign(args.file,args.sign)
+            if args.sign:
+                sign(args.file,args.key)
             #########################
             repo.upload_image(args.image, args.file)
         except RepomanError, e:

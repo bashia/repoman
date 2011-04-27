@@ -26,10 +26,13 @@ def swaphexbin(infile):
 
 def sign(infile,key):
     temphile = tempfile.mkstemp()[1]
-    if not key:
+    try:
+        if key and os.path.isfile(os.path.expanduser(key)):
+            keyloc = key
+        else:
+            keyloc = '~/.globus/userkey.pem'
+    except Exception:
         keyloc = '~/.globus/userkey.pem'
-    else:
-        keyloc = args.key
     sign = "openssl dgst -sha1 -hex -sign " + os.path.expanduser(keyloc)\
      + " -out " + temphile + " " + infile + "; cat " + temphile + "; rm "\
      + temphile
